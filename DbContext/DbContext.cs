@@ -12,6 +12,7 @@ public class AnnouncementDbContext : DbContext
     }
 
     public DbSet<Announcement> Announcements { get; set; }
+    public DbSet<IgnoredWord> IgnoredWords { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -23,6 +24,10 @@ public class AnnouncementDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Announcement>().ToTable("Announcements");
+
+        modelBuilder.Entity<IgnoredWord>().ToTable("IgnoredWords");
+        modelBuilder.Entity<IgnoredWord>().HasKey(w => w.Id);
+        modelBuilder.Entity<IgnoredWord>().Property(w => w.Word).IsRequired();
 
         base.OnModelCreating(modelBuilder);
     }
