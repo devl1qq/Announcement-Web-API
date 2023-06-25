@@ -11,6 +11,8 @@ namespace Announcement_Web_API.Controllers
     [Route("api/[controller]")]
     public class AnnouncementsController : ControllerBase
     {
+
+
         private readonly AnnouncementDbContext _dbContext;
         private readonly SearchingHelper _searchingHelper;
 
@@ -85,9 +87,20 @@ namespace Announcement_Web_API.Controllers
                     return NotFound($"Announcement with ID {id} not found");
                 }
 
-                announcement.Title = announcementDTO.Title ?? announcement.Title;
-                announcement.Description = announcementDTO.Description ?? announcement.Description;
-                announcement.Location = announcementDTO.Location ?? announcement.Location;
+                if (!string.IsNullOrWhiteSpace(announcementDTO.Title))
+                {
+                    announcement.Title = announcementDTO.Title;
+                }
+
+                if (!string.IsNullOrWhiteSpace(announcementDTO.Description))
+                {
+                    announcement.Description = announcementDTO.Description;
+                }
+
+                if (!string.IsNullOrWhiteSpace(announcementDTO.Location))
+                {
+                    announcement.Location = announcementDTO.Location;
+                }
 
                 await _dbContext.SaveChangesAsync();
 
@@ -100,14 +113,17 @@ namespace Announcement_Web_API.Controllers
         }
 
 
+
+
         [HttpGet("get_list_of_announcement")]
         public async Task<IActionResult> GetAnnouncementList()
         {
             try
             {
                 var announcements = await _dbContext.Announcements
-                    .Select(a => new AnnouncementDTO
+                    .Select(a => new Announcement
                     {
+                        Id = a.Id,
                         Title = a.Title,
                         Description = a.Description,
                         Location = a.Location
@@ -123,7 +139,7 @@ namespace Announcement_Web_API.Controllers
         }
 
         [HttpGet("find/{id}")]
-        public IActionResult GetAnnouncementDetails(int id)
+        public async Task<IActionResult> GetAnnouncementDetails(int id)
         {
             try
             {
@@ -131,11 +147,12 @@ namespace Announcement_Web_API.Controllers
                 if (selectedAnnouncement == null)
                     return NotFound($"Announcement with ID {id} not found");
 
-                var announcementDetails = new
+                var announcementDetails = new AnnouncementDTO
                 {
-                    selectedAnnouncement.Title,
-                    selectedAnnouncement.Description,
-                    selectedAnnouncement.DateAdded
+                    Title = selectedAnnouncement.Title,
+                    Description = selectedAnnouncement.Description,
+                    Location = selectedAnnouncement.Location,
+                    DateAdded = selectedAnnouncement.DateAdded
                 };
 
                 var selectedAnnouncementKeywords = _searchingHelper.GetKeywords(selectedAnnouncement);
@@ -143,16 +160,22 @@ namespace Announcement_Web_API.Controllers
                 var allAnnouncements = _dbContext.Announcements.ToList();
 
                 var similarAnnouncements = allAnnouncements
-                    .Where(a => a.Id != id && _searchingHelper.HasMatchingKeyword(a, selectedAnnouncementKeywords))
-                    .OrderByDescending(a => a.DateAdded)
+                    .Where(a => a.Id != id)
+                    .Select(a => new
+                    {
+                        Announcement = a,
+                        Keywords = _searchingHelper.GetKeywords(a)
+                    })
+                    .Where(a => a.Keywords.Intersect(selectedAnnouncementKeywords).Any())
+                    .OrderByDescending(a => a.Announcement.DateAdded)
                     .Take(3)
                     .Select(a => new AnnouncementDTO
                     {
-                        Title = a.Title,
-                        Description = a.Description,
-                        Location = a.Location
+                        Title = a.Announcement.Title,
+                        Description = a.Announcement.Description,
+                        Location = a.Announcement.Location
                     })
-                    .ToArray();
+                    .ToList();
 
                 var result = new
                 {
@@ -167,5 +190,6 @@ namespace Announcement_Web_API.Controllers
                 return BadRequest($"Failed to retrieve announcement details: {ex.Message}");
             }
         }
+
     }
 }
